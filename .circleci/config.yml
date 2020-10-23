@@ -130,6 +130,25 @@ commands:
           name: "Running tests matching '<< parameters.pattern >>'"
           command: "riot -v run -s '<< parameters.pattern >>'"
 
+  build_base_venv:
+    description: "Build the base virtualenv for the specified Python version"
+    parameters:
+      python:
+        type: string
+        default: ""
+    steps:
+      - attach_workspace:
+          at: .
+      - checkout
+      - run: pip3 install riot
+      - run:
+          name: "Build base virtualenv for << parameters.python >>"
+          command: riot -v generate --python=<< parameters.python >>
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ".venv_py*"
+
   run_tox_scenario:
     description: "Run scripts/run-tox-scenario with setup, caching and persistence"
     parameters:
@@ -255,18 +274,41 @@ jobs:
       - setup_tox
       - run: tox -e flake8
 
-  build_base:
+  build_base_py2:
     executor: ddtrace_dev
     steps:
-      - checkout
-      - run: pip3 install riot
-      - run:
-          name: "Generate base virtual environments."
-          command: "riot -v generate"
-      - persist_to_workspace:
-          root: .
-          paths:
-            - "."
+      - build_base_venv:
+          python: "2.7"
+
+  build_base_py35:
+    executor: ddtrace_dev
+    steps:
+      - build_base_venv:
+          python: "3.5"
+
+  build_base_py36:
+    executor: ddtrace_dev
+    steps:
+      - build_base_venv:
+          python: "3.6"
+
+  build_base_py37:
+    executor: ddtrace_dev
+    steps:
+      - build_base_venv:
+          python: "3.7"
+
+  build_base_py38:
+    executor: ddtrace_dev
+    steps:
+      - build_base_venv:
+          python: "3.8"
+
+  build_base_py39:
+    executor: ddtrace_dev
+    steps:
+      - build_base_venv:
+          python: "3.9"
 
   build-docker-ci-image:
     executor: cimg_base
@@ -840,7 +882,12 @@ requires_pre_test: &requires_pre_test
     - black
     - flake8
     - ccheck
-    - build_base
+    - build_base_py2
+    - build_base_py35
+    - build_base_py36
+    - build_base_py37
+    - build_base_py38
+    - build_base_py39
 
 requires_tests: &requires_tests
   - build_docs
@@ -931,7 +978,12 @@ workflows:
       - black
       - flake8
       - ccheck
-      - build_base
+      - build_base_py2
+      - build_base_py35
+      - build_base_py36
+      - build_base_py37
+      - build_base_py38
+      - build_base_py39
 
       # Test building the package
       - test_build_alpine: *requires_pre_test
