@@ -237,7 +237,7 @@ class BotocoreTest(TracerTestCase):
             Role='test-iam-role',
             Handler='lambda_function.lambda_handler',
             Code={
-                'ZipFile': lambda_event,
+                'ZipFile': lambda_event(),
             },
             Publish=True,
             Timeout=30,
