@@ -1,8 +1,10 @@
 # 3p
-import json
 import base64
 import botocore.session
+import io
+import json
 from moto import mock_s3, mock_ec2, mock_lambda, mock_sqs, mock_kinesis, mock_kms
+import zipfile
 
 # project
 from ddtrace import Pin, tracer
@@ -15,6 +17,19 @@ from ddtrace.ext import SpanTypes
 # testing
 from tests.opentracer.utils import init_tracer
 from ... import TracerTestCase, assert_is_measured, assert_span_http_status_code
+
+
+def lambda_event():
+    code = '''
+        def lambda_handler(event, context):
+            return event
+        '''
+    zip_output = io.BytesIO()
+    zip_file = zipfile.ZipFile(zip_output, 'w', zipfile.ZIP_DEFLATED)
+    zip_file.writestr('lambda_function.py', code)
+    zip_file.close()
+    zip_output.seek(0)
+    return zip_output.read()
 
 
 class BotocoreTest(TracerTestCase):
@@ -211,6 +226,42 @@ class BotocoreTest(TracerTestCase):
         assert_span_http_status_code(span, 200)
         self.assertEqual(span.service, 'test-botocore-tracing.lambda')
         self.assertEqual(span.resource, 'lambda.listfunctions')
+
+    @mock_lambda
+    def test_lambda_client(self):
+        lamb = self.session.create_client('lambda', region_name='us-west-2')
+        Pin(service=self.TEST_SERVICE, tracer=self.tracer).onto(lamb)
+        test_lambda = lamb.create_function(
+            FunctionName='ironmaiden',
+            Runtime='python2.7',
+            Role='test-iam-role',
+            Handler='lambda_function.lambda_handler',
+            Code={
+                'ZipFile': lambda_event,
+            },
+            Publish=True,
+            Timeout=30,
+            MemorySize=128
+        )
+
+        print(test_lambda)
+
+        lamb.list_functions()
+        result_call =lamb.invoke_lambda(
+            FunctionName='ironmaiden',
+            Payload=json.dumps({"foo":"bar"})
+        )
+
+        spans = self.get_spans()
+        assert spans
+        span = spans[0]
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(span.get_tag('aws.region'), 'us-west-2')
+        self.assertEqual(span.get_tag('aws.operation'), 'Invoke')
+        assert_is_measured(span)
+        assert_span_http_status_code(span, 200)
+        self.assertEqual(span.service, 'test-botocore-tracing.lambda')
+        self.assertEqual(span.resource, 'lambda.invoke')
 
     def test_inject_trace_no_context(self):
         with tracer.trace('test', service='lambda.invoke.test', span_type=SpanTypes.HTTP) as test_span:
