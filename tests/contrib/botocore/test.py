@@ -228,7 +228,7 @@ class BotocoreTest(TracerTestCase):
         self.assertEqual(span.resource, 'lambda.listfunctions')
 
     @mock_lambda
-    def test_lambda_client(self):
+    def test_lambda_invoke_no_context(self):
         lamb = self.session.create_client('lambda', region_name='us-west-2')
         Pin(service=self.TEST_SERVICE, tracer=self.tracer).onto(lamb)
         test_lambda = lamb.create_function(
@@ -247,7 +247,7 @@ class BotocoreTest(TracerTestCase):
         print(test_lambda)
 
         lamb.list_functions()
-        result_call =lamb.invoke_lambda(
+        lamb.invoke_lambda(
             FunctionName='ironmaiden',
             Payload=json.dumps({"foo":"bar"})
         )
