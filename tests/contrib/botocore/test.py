@@ -229,7 +229,7 @@ class BotocoreTest(TracerTestCase):
 
     @mock_lambda
     def test_lambda_invoke_no_context(self):
-        lamb = self.session.create_client('lambda', region_name='us-west-2', endpoint_url='http://localhost:5000')
+        lamb = self.session.create_client('lambda', region_name='us-west-2', endpoint_url='http://localhost:5004')
         Pin(service=self.TEST_SERVICE, tracer=self.tracer).onto(lamb)
         test_lambda = lamb.create_function(
             FunctionName='ironmaiden',
