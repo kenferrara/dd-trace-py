@@ -6,6 +6,7 @@ import logging
 import os
 import imp
 import sys
+import traceback
 
 from ddtrace.utils.formats import asbool, get_env, parse_tags_str
 from ddtrace.internal.logger import get_logger
@@ -28,10 +29,6 @@ if config.logs_injection:
 if not debug_mode:
     if config.logs_injection:
         logging.basicConfig(format=DD_LOG_FORMAT)
-    else:
-        logging.basicConfig()
-
-log = get_logger(__name__)
 
 EXTRA_PATCHED_MODULES = {
     "bottle": True,
@@ -116,7 +113,7 @@ try:
         pass
     else:
         # `sitecustomize.py` found, load it
-        log.debug("sitecustomize from user found in: %s", path)
+        print("sitecustomize from user found in: {path}".format(path=path))
         imp.load_module("sitecustomize", f, path, description)
 
     # Loading status used in tests to detect if the `sitecustomize` has been
@@ -125,4 +122,5 @@ try:
     loaded = True
 except Exception:
     loaded = False
-    log.warning("error configuring Datadog tracing", exc_info=True)
+    print("error configuring Datadog tracing")
+    traceback.print_exc()
